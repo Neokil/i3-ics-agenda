@@ -19,7 +19,7 @@ The Tool can be used from the commandline and has the following parameters:
 Zenity allows you to display list so for this I decided on using a radiolist to indicate the current event:
 ```
 ICS="https://link-to-your-ics"
-AGENDA=$(./i3-ics-agenda -ics-url $ICS -output "agenda")
+AGENDA=$(./i3-ics-agenda -ics-url $ICS -output agenda)
 zenity --list --radiolist --width=500 --height=300 --text='Agenda' --column='' --column='Start' --column='End' --column='Summary' $AGENDA
 ```
 
@@ -31,8 +31,8 @@ To get this all working as an i3bar applet I am using the following configuratio
 BUTTON=${button:-}
 ICS="https://link-to-your-ics"
 
-CURRENT_EVENT=$(i3-ics-agenda/i3-ics-agenda -ics-url "$ICS" -output "current")
-NEXT_EVENT=$(i3-ics-agenda/i3-ics-agenda -ics-url "$ICS" -output "next")
+CURRENT_EVENT=$(./i3-ics-agenda -ics-url "$ICS" -output current)
+NEXT_EVENT=$(./i3-ics-agenda -ics-url "$ICS" -output next)
 
 LABEL_ICON=${icon:-$(xrescat i3xrocks.label.time )}
 LABEL_COLOR=${label_color:-$(xrescat i3xrocks.label.color "#7B8394")}
@@ -53,7 +53,7 @@ fi
 echo "<span color=\"${LABEL_COLOR}\">$LABEL_ICON</span><span font_desc=\"${VALUE_FONT}\" color=\"${VALUE_COLOR}\"> $OUTPUT</span>"
 
 if [ "x${BUTTON}" == "x1" ]; then
-    AGENDA=$(./i3-ics-agenda -ics-url $ICS -output "agenda")
+    AGENDA=$(./i3-ics-agenda -ics-url $ICS -output agenda)
     /usr/bin/i3-msg -q exec "zenity --list --radiolist --width=500 --height=300 --text='Agenda' --column='' --column='Start' --column='End' --column='Summary' $AGENDA"
 fi
 ```
