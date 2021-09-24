@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -67,8 +69,9 @@ func main() {
 	}
 }
 
-func loadEventsFromCache(cacheDuration time.Duration) (result []gocal.Event, err error) {
-	s, err := os.Stat(CACHE_FILE)
+func loadEventsFromCache(url string, cacheDuration time.Duration) (result []gocal.Event, err error) {
+	filename := generateCacheFilename(url)
+	s, err := os.Stat(filename)
 	if err != nil {
 		// cannot access file
 		return nil, fmt.Errorf("cannot stat file: %w", err)
@@ -78,7 +81,7 @@ func loadEventsFromCache(cacheDuration time.Duration) (result []gocal.Event, err
 		return nil, fmt.Errorf("cache-file is too old")
 	}
 
-	f, err := os.Open(CACHE_FILE)
+	f, err := os.Open(filename)
 	if err != nil {
 		// cannot read file
 		return nil, fmt.Errorf("cannot read file: %w", err)
@@ -122,8 +125,9 @@ func loadEventsFromUrl(url string) ([]gocal.Event, error) {
 	return c.Events, nil
 }
 
-func cacheEvents(e []gocal.Event) error {
-	f, err := os.OpenFile(CACHE_FILE, os.O_CREATE, 0666)
+func cacheEvents(e []gocal.Event, url string) error {
+	filename := generateCacheFilename(url)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return fmt.Errorf("cannot open or create file: %w", err)
 	}
@@ -136,8 +140,13 @@ func cacheEvents(e []gocal.Event) error {
 	return nil
 }
 
+func generateCacheFilename(url string) string {
+	urlHash := sha1.Sum([]byte(url))
+	return CACHE_FILE + base64.StdEncoding.EncodeToString(urlHash[:])
+}
+
 func getTodaysEvents(url string, cacheDuration time.Duration) ([]gocal.Event, error) {
-	e, err := loadEventsFromCache(cacheDuration)
+	e, err := loadEventsFromCache(url, cacheDuration)
 	if err == nil {
 		return e, nil
 	}
@@ -145,8 +154,10 @@ func getTodaysEvents(url string, cacheDuration time.Duration) ([]gocal.Event, er
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve events from url: %w", err)
 	}
-	// ignore if caching is not working
-	_ = cacheEvents(e)
+	err = cacheEvents(e, url)
+	if err != nil {
+		return nil, fmt.Errorf("cannot cache events: %w", err)
+	}
 	return e, nil
 }
 
