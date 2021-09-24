@@ -39,7 +39,7 @@ func main() {
 	case "current":
 		for _, e := range e {
 			if e.Start.Before(time.Now()) && e.End.After(time.Now()) {
-				renderEvent(e, "default")
+				renderEventAsString(e)
 				return
 			}
 		}
@@ -47,23 +47,19 @@ func main() {
 	case "next":
 		for _, e := range e {
 			if e.Start.After(time.Now()) {
-				renderEvent(e, "default")
+				renderEventAsString(e)
 				return
 			}
 		}
 		return
 	case "agenda":
 		var currentEvent *gocal.Event
-		var nextEvent *gocal.Event
 		for _, e := range e {
 			if currentEvent == nil && e.Start.Before(time.Now()) && e.End.After(time.Now()) {
 				currentEvent = &e
-				renderEvent(e, "current")
-			} else if nextEvent == nil && e.Start.After(time.Now()) {
-				nextEvent = &e
-				renderEvent(e, "default")
+				renderEventAsListEntry(e, true)
 			} else {
-				renderEvent(e, "default")
+				renderEventAsListEntry(e, false)
 			}
 		}
 	}
@@ -161,17 +157,16 @@ func getTodaysEvents(url string, cacheDuration time.Duration) ([]gocal.Event, er
 	return e, nil
 }
 
-func renderEvent(e gocal.Event, icon string) {
-	fmt.Printf("[%s - %s] %s%s\n", getTimeString(e.Start), getTimeString(e.End), getIcon(icon), e.Summary)
+func renderEventAsString(e gocal.Event) {
+	fmt.Printf("[%s - %s] %s\n", getTimeString(e.Start), getTimeString(e.End), e.Summary)
 }
 
-func getIcon(icon string) string {
-	switch icon {
-	case "current":
-		return "> "
-	default:
-		return ""
+func renderEventAsListEntry(e gocal.Event, current bool) {
+	currentVal := "FALSE"
+	if current {
+		currentVal = "TRUE"
 	}
+	fmt.Printf("%s \"%s\" \"%s\" \"%s\"\n", currentVal, getTimeString(e.Start), getTimeString(e.End), e.Summary)
 }
 
 func getTimeString(t *time.Time) string {
