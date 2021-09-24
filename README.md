@@ -10,7 +10,9 @@ The Tool can be used from the commandline and has the following parameters:
     -output <format>                required parameter that defines the output.
                                     Valid values are
                                     - current: returns the current event in the Format "[START - END] SUBJECT"
+                                    - current-link: returns the first link in the location and description of the current event
                                     - next: returns the next event in the Format "[START - END] SUBJECT"
+                                    - next-link: returns the first link in the location and description of the next event
                                     - agenda: returns all events for today in the format "IS_CURRENT 'START' END' 'SUMMARY' (compatible with zenity)
     -cal-cache-duration <duration>  optional parameter that defines how long the ICS will be cached locally. Defaults to 5 minutes
 ```

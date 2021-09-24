@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"time"
 
@@ -18,7 +19,7 @@ const CACHE_FILE = "/tmp/i3-ics-cache"
 
 func main() {
 	icsURL := flag.String("ics-url", "", "The ICS-URL that will be used to retreive the events")
-	output := flag.String("output", "", "Defines what the output will be. Valid values are 'current' (the current event), 'next' (the next event) and 'agenda' (list of all events for today)")
+	output := flag.String("output", "", "Defines what the output will be. Valid values are 'current' (the current event), 'current-link' (first link in current event location and description), 'next' (the next event), 'next-link' (first link in next event location and description) and 'agenda' (list of all events for today)")
 	calCacheDuration := flag.Duration("cal-cache-duration", time.Minute*5, "Defines how long the ICS will be cached. Default is 5 Minutes")
 	flag.Parse()
 
@@ -44,10 +45,26 @@ func main() {
 			}
 		}
 		return
+	case "current-link":
+		for _, e := range e {
+			if e.Start.Before(time.Now()) && e.End.After(time.Now()) {
+				renderEventLinkAsString(e)
+				return
+			}
+		}
+		return
 	case "next":
 		for _, e := range e {
 			if e.Start.After(time.Now()) {
 				renderEventAsString(e)
+				return
+			}
+		}
+		return
+	case "next-link":
+		for _, e := range e {
+			if e.Start.After(time.Now()) {
+				renderEventLinkAsString(e)
 				return
 			}
 		}
@@ -159,6 +176,16 @@ func getTodaysEvents(url string, cacheDuration time.Duration) ([]gocal.Event, er
 
 func renderEventAsString(e gocal.Event) {
 	fmt.Printf("[%s - %s] %s\n", getTimeString(e.Start), getTimeString(e.End), e.Summary)
+}
+
+func renderEventLinkAsString(e gocal.Event) {
+	search := e.Location + "\n" + e.Description
+	r, err := regexp.Compile(`https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
+	if err != nil {
+		panic(err.Error())
+	}
+	s := r.FindString(search)
+	fmt.Print(s)
 }
 
 func renderEventAsListEntry(e gocal.Event, current bool) {
