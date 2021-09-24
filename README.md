@@ -58,4 +58,20 @@ if [ "x${BUTTON}" == "x1" ]; then
     AGENDA=$(./i3-ics-agenda -ics-url $ICS -output agenda)
     /usr/bin/i3-msg -q exec "zenity --list --radiolist --width=500 --height=300 --text='Agenda' --column='' --column='Start' --column='End' --column='Summary' $AGENDA"
 fi
+
+# middle mouse button
+if [ "x${BUTTON}" == "x2" ]; then
+    CURRENT_LINK=$(~/.config/regolith/i3xrocks/bin/i3-ics-agenda/i3-ics-agenda -ics-url $ICS -output current-link)
+    if [ "$CURRENT_LINK" != "" ]; then
+        /usr/bin/i3-msg -q exec "xdg-open $CURRENT_LINK"
+    fi
+fi
+
+# right mouse button
+if [ "x${BUTTON}" == "x3" ]; then
+    NEXT_LINK=$(~/.config/regolith/i3xrocks/bin/i3-ics-agenda/i3-ics-agenda -ics-url $ICS -output next-link)
+    if [ "$NEXT_LINK" != "" ]; then
+        /usr/bin/i3-msg -q exec "xdg-open $NEXT_LINK"
+    fi
+fi
 ```
