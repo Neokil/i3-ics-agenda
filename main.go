@@ -166,7 +166,7 @@ func renderEventAsListEntry(e gocal.Event, current bool) {
 	if current {
 		currentVal = "TRUE"
 	}
-	fmt.Printf("%s \"%s\" \"%s\" \"%s\"", currentVal, getTimeString(e.Start), getTimeString(e.End), e.Summary)
+	fmt.Printf("%s '%s' '%s' '%s' ", currentVal, getTimeString(e.Start), getTimeString(e.End), e.Summary)
 }
 
 func getTimeString(t *time.Time) string {
