@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha1"
+	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -13,13 +14,18 @@ import (
 	"time"
 
 	"github.com/apognu/gocal"
+	"github.com/faiface/beep/speaker"
+	"github.com/faiface/beep/wav"
 )
 
 const CACHE_FILE = "/tmp/i3-ics-cache"
 
+//go:embed beep.wav
+var embedded embed.FS
+
 func main() {
 	icsURL := flag.String("ics-url", "", "The ICS-URL that will be used to retreive the events")
-	output := flag.String("output", "", "Defines what the output will be. Valid values are 'current' (the current event), 'current-link' (first link in current event location and description), 'next' (the next event), 'next-link' (first link in next event location and description) and 'agenda' (list of all events for today)")
+	output := flag.String("output", "", "Defines what the output will be. Valid values are 'current' (the current event), 'current-link' (first link in current event location and description), 'next' (the next event), 'next-link' (first link in next event location and description), 'tail' (current and next event in stdout) and 'agenda' (list of all events for today)")
 	calCacheDuration := flag.Duration("cal-cache-duration", time.Minute*5, "Defines how long the ICS will be cached. Default is 5 Minutes")
 	flag.Parse()
 
@@ -36,39 +42,94 @@ func main() {
 		panic(err)
 	}
 
+	f, err := embedded.Open("beep.wav")
+	if err != nil {
+		panic(err)
+	}
+
+	streamer, format, err := wav.Decode(f)
+	if err != nil {
+		panic(err)
+	}
+	defer streamer.Close()
+	err = speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	if err != nil {
+		panic(err)
+	}
+
 	switch *output {
 	case "current":
-		for _, e := range e {
-			if e.Start.Before(time.Now()) && e.End.After(time.Now()) {
-				renderEventAsString(e)
-				return
-			}
+		evt := getCurrentEvent(e)
+		if evt != nil {
+			renderEventAsString(*evt)
 		}
 		return
 	case "current-link":
-		for _, e := range e {
-			if e.Start.Before(time.Now()) && e.End.After(time.Now()) {
-				renderEventLinkAsString(e)
-				return
-			}
+		evt := getCurrentEvent(e)
+		if evt != nil {
+			renderEventLinkAsString(*evt)
 		}
 		return
 	case "next":
-		for _, e := range e {
-			if e.Start.After(time.Now()) {
-				renderEventAsString(e)
-				return
-			}
+		evt := getNextEvent(e)
+		if evt != nil {
+			renderEventAsString(*evt)
 		}
 		return
 	case "next-link":
-		for _, e := range e {
-			if e.Start.After(time.Now()) {
-				renderEventLinkAsString(e)
-				return
-			}
+		evt := getNextEvent(e)
+		if evt != nil {
+			renderEventLinkAsString(*evt)
 		}
 		return
+	case "tail":
+		// tail will loop forever
+		var currentEvent *gocal.Event
+		var nextEvent *gocal.Event
+		var nextEventAnnounced1 = false
+		var nextEventAnnounced2 = false
+
+		for {
+			time.Sleep(time.Second)
+
+			ce := getCurrentEvent(e)
+			ne := getNextEvent(e)
+
+			if eventsEqual(ce, currentEvent) && eventsEqual(ne, nextEvent) {
+				if !nextEventAnnounced2 && ne.Start.Before(time.Now().Add(5*time.Minute)) {
+					nextEventAnnounced1 = true
+					nextEventAnnounced2 = true
+					speaker.Play(streamer)
+				}
+
+				if !nextEventAnnounced1 && ne.Start.Before(time.Now().Add(15*time.Minute)) {
+					nextEventAnnounced1 = true
+					speaker.Play(streamer)
+				}
+
+				continue
+			}
+			speaker.Play(streamer)
+			nextEventAnnounced1 = false
+			nextEventAnnounced2 = false
+			currentEvent = ce
+			nextEvent = ne
+
+			if currentEvent == nil && nextEvent == nil {
+				fmt.Println("No upcoming Events")
+				continue
+			}
+			if currentEvent != nil && nextEvent == nil {
+				fmt.Printf("Current: [%s - %s] %s\n", getTimeString(currentEvent.Start), getTimeString(currentEvent.End), fixedSizeString(currentEvent.Summary, 40, "..."))
+				continue
+			}
+			if currentEvent == nil && nextEvent != nil {
+				fmt.Printf("Upcoming: [%s - %s] %.40s\n", getTimeString(nextEvent.Start), getTimeString(nextEvent.End), fixedSizeString(nextEvent.Summary, 40, "..."))
+				continue
+			}
+
+			fmt.Printf("[%s - %s] %s > [%s - %s] %s\n", getTimeString(currentEvent.Start), getTimeString(currentEvent.End), fixedSizeString(currentEvent.Summary, 30, "..."), getTimeString(nextEvent.Start), getTimeString(nextEvent.End), fixedSizeString(nextEvent.Summary, 30, "..."))
+		}
 	case "agenda":
 		var currentEvent *gocal.Event
 		for _, e := range e {
@@ -80,6 +141,34 @@ func main() {
 			}
 		}
 	}
+}
+
+func eventsEqual(e1 *gocal.Event, e2 *gocal.Event) bool {
+	if e1 == nil && e2 == nil {
+		return true
+	}
+	if e1 != nil && e2 != nil {
+		return e1.Uid == e2.Uid
+	}
+	return false
+}
+
+func getCurrentEvent(events []gocal.Event) *gocal.Event {
+	for _, e := range events {
+		if e.Start.Before(time.Now()) && e.End.After(time.Now()) {
+			return &e
+		}
+	}
+	return nil
+}
+
+func getNextEvent(events []gocal.Event) *gocal.Event {
+	for _, e := range events {
+		if e.Start.After(time.Now()) {
+			return &e
+		}
+	}
+	return nil
 }
 
 func loadEventsFromCache(url string, cacheDuration time.Duration) (result []gocal.Event, err error) {
@@ -199,4 +288,11 @@ func renderEventAsListEntry(e gocal.Event, current bool) {
 func getTimeString(t *time.Time) string {
 	h, m, _ := t.Clock()
 	return fmt.Sprintf("%02d:%02d", h, m)
+}
+
+func fixedSizeString(s string, maxLength int, ellipsesSymbol string) string {
+	if len(s) > maxLength {
+		return s[0:maxLength] + ellipsesSymbol
+	}
+	return s
 }
