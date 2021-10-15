@@ -96,15 +96,17 @@ func main() {
 			ne := getNextEvent(e)
 
 			if eventsEqual(ce, currentEvent) && eventsEqual(ne, nextEvent) {
-				if !nextEventAnnounced2 && ne.Start.Before(time.Now().Add(5*time.Minute)) {
-					nextEventAnnounced1 = true
-					nextEventAnnounced2 = true
-					speaker.Play(streamer)
-				}
+				if ne != nil {
+					if !nextEventAnnounced2 && ne.Start.Before(time.Now().Add(5*time.Minute)) {
+						nextEventAnnounced1 = true
+						nextEventAnnounced2 = true
+						speaker.Play(streamer)
+					}
 
-				if !nextEventAnnounced1 && ne.Start.Before(time.Now().Add(15*time.Minute)) {
-					nextEventAnnounced1 = true
-					speaker.Play(streamer)
+					if !nextEventAnnounced1 && ne.Start.Before(time.Now().Add(15*time.Minute)) {
+						nextEventAnnounced1 = true
+						speaker.Play(streamer)
+					}
 				}
 
 				continue
