@@ -103,13 +103,13 @@ func main() {
 						nextEventAnnounced1 = true
 						nextEventAnnounced2 = true
 						speaker.Play(streamer)
-						_ = sendNotification("Agenda", "Upcoming event in 5 Minutes")
+						_ = sendNotification(ne.Summary, "Upcoming event in 5 Minutes")
 					}
 
 					if !nextEventAnnounced1 && ne.Start.Before(time.Now().Add(15*time.Minute)) {
 						nextEventAnnounced1 = true
 						speaker.Play(streamer)
-						_ = sendNotification("Agenda", "Upcoming event in 15 Minutes")
+						_ = sendNotification(ne.Summary, "Upcoming event in 15 Minutes")
 					}
 				}
 
