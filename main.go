@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha1"
 	"embed"
 	"encoding/base64"
@@ -16,6 +17,7 @@ import (
 	"github.com/apognu/gocal"
 	"github.com/faiface/beep/speaker"
 	"github.com/faiface/beep/wav"
+	"github.com/godbus/dbus/v5"
 )
 
 const CACHE_FILE = "/tmp/i3-ics-cache"
@@ -101,11 +103,13 @@ func main() {
 						nextEventAnnounced1 = true
 						nextEventAnnounced2 = true
 						speaker.Play(streamer)
+						_ = sendNotification("Agenda", "Upcoming event in 5 Minutes")
 					}
 
 					if !nextEventAnnounced1 && ne.Start.Before(time.Now().Add(15*time.Minute)) {
 						nextEventAnnounced1 = true
 						speaker.Play(streamer)
+						_ = sendNotification("Agenda", "Upcoming event in 15 Minutes")
 					}
 				}
 
@@ -143,6 +147,22 @@ func main() {
 			}
 		}
 	}
+}
+
+func sendNotification(title string, body string) error {
+	con, err := dbus.SessionBus()
+	if err != nil {
+		return fmt.Errorf("Failed to open dbus-session: %w", err)
+	}
+	var d = make(chan *dbus.Call, 1)
+	var o = con.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+	var id uint32
+	o.GoWithContext(context.Background(), "org.freedesktop.Notifications.Notify", 0, d, "i3-ics-Agenda", uint32(0), "", title, body, []string{}, map[string]interface{}{}, int32(0))
+	err = (<-d).Store(&id)
+	if err != nil {
+		return fmt.Errorf("Failed to create notification on dbus: %w", err)
+	}
+	return nil
 }
 
 func eventsEqual(e1 *gocal.Event, e2 *gocal.Event) bool {
